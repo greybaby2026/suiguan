@@ -47,9 +47,7 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
       setState(() {
         _warehouses = list.cast<Map<String, dynamic>>();
       });
-    } catch (e) {
-      // 加载失败时保持空列表
-    }
+    } catch (e) {}
   }
 
   Future<void> _loadInventories() async {
@@ -78,6 +76,12 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
     }
   }
 
+  String _formatQty(dynamic qty) {
+    if (qty == null) return '0';
+    final d = double.tryParse(qty.toString()) ?? 0;
+    return d == d.truncateToDouble() ? d.toInt().toString() : d.toStringAsFixed(2);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,7 +90,7 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
       body: Column(
         children: [
           _buildSearchBar(),
-          _buildWarehouseFilter(),
+          if (_warehouses.isNotEmpty) _buildWarehouseFilter(),
           _buildItemTypeFilter(),
           Expanded(
             child: _isLoading
@@ -94,18 +98,21 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
                 : _error != null
                     ? ErrorStateWidget(error: _error, onRetry: _loadInventories)
                     : _inventories.isEmpty
-                    ? _buildEmpty()
-                    : RefreshIndicator(
-                        onRefresh: _loadInventories,
-                        color: AppTheme.primaryColor,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                          itemCount: _inventories.length,
-                          itemBuilder: (context, index) {
-                            return _InventoryCard(item: _inventories[index]);
-                          },
-                        ),
-                      ),
+                        ? _buildEmpty()
+                        : RefreshIndicator(
+                            onRefresh: _loadInventories,
+                            color: AppTheme.primaryColor,
+                            child: ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                              itemCount: _inventories.length,
+                              itemBuilder: (context, index) {
+                                return _InventoryCard(
+                                  item: _inventories[index],
+                                  formatQty: _formatQty,
+                                );
+                              },
+                            ),
+                          ),
           ),
         ],
       ),
@@ -134,71 +141,73 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
   }
 
   Widget _buildWarehouseFilter() {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        children: [
-          _FilterChip(
-            label: '全部仓库',
-            isSelected: _selectedWarehouseId == null,
-            onTap: () {
-              setState(() => _selectedWarehouseId = null);
-              _loadInventories();
-            },
-          ),
-          ..._warehouses.map((warehouse) {
-            return Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: _FilterChip(
-                label: warehouse['name'] ?? '',
-                isSelected: _selectedWarehouseId == warehouse['id'],
-                onTap: () {
-                  setState(() => _selectedWarehouseId = warehouse['id'] as int);
-                  _loadInventories();
-                },
-              ),
-            );
-          }),
-        ],
+        child: Row(
+          children: [
+            _FilterChip(
+              label: '全部仓库',
+              isSelected: _selectedWarehouseId == null,
+              onTap: () {
+                setState(() => _selectedWarehouseId = null);
+                _loadInventories();
+              },
+            ),
+            ..._warehouses.map((warehouse) {
+              return Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: _FilterChip(
+                  label: warehouse['name'] ?? '',
+                  isSelected: _selectedWarehouseId == warehouse['id'],
+                  onTap: () {
+                    setState(() => _selectedWarehouseId = warehouse['id'] as int);
+                    _loadInventories();
+                  },
+                ),
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildItemTypeFilter() {
-    return Container(
-      height: 40,
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      child: ListView(
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        children: _itemTypes.map((type) {
-          final isActive = _selectedItemType == type['value'];
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _selectedItemType = type['value']!);
-                _loadInventories();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: isActive ? AppTheme.infoColor : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  type['label']!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: isActive ? Colors.white : AppTheme.textSecondary,
+        child: Row(
+          children: _itemTypes.map((type) {
+            final isActive = _selectedItemType == type['value'];
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _selectedItemType = type['value']!);
+                  _loadInventories();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isActive ? AppTheme.infoColor : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    type['label']!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isActive ? Colors.white : AppTheme.textSecondary,
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -253,13 +262,19 @@ class _FilterChip extends StatelessWidget {
 
 class _InventoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
+  final String Function(dynamic) formatQty;
 
-  const _InventoryCard({required this.item});
+  const _InventoryCard({required this.item, required this.formatQty});
 
   @override
   Widget build(BuildContext context) {
     final isWarning = item['is_warning'] == true;
     final itemColor = isWarning ? AppTheme.dangerColor : AppTheme.primaryColor;
+    final itemName = item['item_name'] ?? '';
+    final warehouseName = item['warehouse_name'] ?? '';
+    final spec = item['item_spec'];
+    final unit = item['unit'] ?? '';
+    final qty = formatQty(item['quantity']);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -291,16 +306,14 @@ class _InventoryCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        item['item_name'] ?? '',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: isWarning ? AppTheme.dangerColor : AppTheme.textPrimary,
-                        ),
+                    Expanded(child: Text(
+                      itemName,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isWarning ? AppTheme.dangerColor : AppTheme.textPrimary,
                       ),
-                    ),
+                    )),
                     if (isWarning)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -310,11 +323,7 @@ class _InventoryCard extends StatelessWidget {
                         ),
                         child: const Text(
                           '低库存',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppTheme.dangerColor,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(fontSize: 10, color: AppTheme.dangerColor, fontWeight: FontWeight.w600),
                         ),
                       ),
                   ],
@@ -322,41 +331,37 @@ class _InventoryCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.warehouse_outlined, size: 14, color: AppTheme.textHint),
-                    const SizedBox(width: 4),
-                    Text(
-                      item['warehouse_name'] ?? '',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textHint),
-                    ),
-                    const SizedBox(width: 12),
-                    if (item['item_spec'] != null) ...[
-                      const Icon(Icons.straighten, size: 14, color: AppTheme.textHint),
-                      const SizedBox(width: 4),
-                      Text(
-                        item['item_spec'],
+                    if (warehouseName.isNotEmpty) ...[
+                      const Icon(Icons.warehouse_outlined, size: 13, color: AppTheme.textHint),
+                      const SizedBox(width: 3),
+                      Text(warehouseName, style: const TextStyle(fontSize: 12, color: AppTheme.textHint)),
+                    ],
+                    if (spec != null && spec.toString().isNotEmpty) ...[
+                      SizedBox(width: warehouseName.isNotEmpty ? 10 : 0),
+                      const Icon(Icons.straighten, size: 13, color: AppTheme.textHint),
+                      const SizedBox(width: 3),
+                      Flexible(child: Text(
+                        spec.toString(),
                         style: const TextStyle(fontSize: 12, color: AppTheme.textHint),
-                      ),
+                        overflow: TextOverflow.ellipsis,
+                      )),
                     ],
                   ],
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                '${item['quantity'] ?? 0}',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: isWarning ? AppTheme.dangerColor : AppTheme.textPrimary,
-                ),
-              ),
-              Text(
-                item['unit'] ?? '',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textHint),
-              ),
+              Text(qty, style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: isWarning ? AppTheme.dangerColor : AppTheme.textPrimary,
+              )),
+              if (unit.isNotEmpty)
+                Text(unit, style: const TextStyle(fontSize: 12, color: AppTheme.textHint)),
             ],
           ),
         ],
