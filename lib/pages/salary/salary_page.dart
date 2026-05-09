@@ -85,9 +85,13 @@ class _SalaryPageState extends State<SalaryPage>
   Widget _buildSalaryHeader() {
     final summary = _salaryData?['summary'] as Map<String, dynamic>? ?? {};
     final lastSettlement = _salaryData?['last_settlement'] as Map<String, dynamic>?;
+    final settledSummary = _salaryData?['settled_summary'] as Map<String, dynamic>? ?? {};
     final grossAmount = safeToDouble(summary['approved_piece_amount']);
     final advanceDeduction = safeToDouble(summary['advance_amount']);
     final netAmount = safeToDouble(summary['net_amount'] ?? grossAmount - advanceDeduction);
+    final settledPieceAmount = safeToDouble(settledSummary['piece_amount']);
+    final settledAdvanceAmount = safeToDouble(settledSummary['advance_amount']);
+    final settledNetAmount = safeToDouble(settledSummary['net_amount']);
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -99,7 +103,7 @@ class _SalaryPageState extends State<SalaryPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('实际应发工资', style: TextStyle(color: Colors.white70, fontSize: 14)),
+          const Text('待结算工资', style: TextStyle(color: Colors.white70, fontSize: 14)),
           const SizedBox(height: 8),
           Text('¥${netAmount.toStringAsFixed(2)}',
               style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w700)),
@@ -113,6 +117,20 @@ class _SalaryPageState extends State<SalaryPage>
               Expanded(child: _buildSalaryInfoItem(label: '预支扣减', value: '-¥${advanceDeduction.toStringAsFixed(2)}', valueColor: Colors.yellowAccent)),
             ],
           ),
+          if (settledNetAmount > 0) ...[
+            const SizedBox(height: 16),
+            const Divider(color: Colors.white24, height: 1),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _buildSalaryInfoItem(label: '已结算计件', value: '¥${settledPieceAmount.toStringAsFixed(2)}')),
+                Container(width: 1, height: 36, color: Colors.white24),
+                Expanded(child: _buildSalaryInfoItem(label: '已结算预支', value: '-¥${settledAdvanceAmount.toStringAsFixed(2)}', valueColor: Colors.yellowAccent)),
+                Container(width: 1, height: 36, color: Colors.white24),
+                Expanded(child: _buildSalaryInfoItem(label: '已结算实发', value: '¥${settledNetAmount.toStringAsFixed(2)}', valueColor: Colors.greenAccent)),
+              ],
+            ),
+          ],
           if (lastSettlement != null) ...[
             const SizedBox(height: 16),
             const Divider(color: Colors.white24, height: 1),
@@ -330,11 +348,13 @@ class _SalaryPageState extends State<SalaryPage>
   }
 
   Widget _buildSettlementCard(Map<String, dynamic> record) {
-    final period = record['period'] ?? record['settlement_period'] ?? '';
-    final totalAmount = safeToDouble(record['total_amount']);
-    final deduction = safeToDouble(record['deduction']);
-    final netAmount = safeToDouble(record['net_amount'] ?? totalAmount - deduction);
+    final period = record['period'] ?? '${record['period_start'] ?? ''} ~ ${record['period_end'] ?? ''}';
+    final pieceAmount = safeToDouble(record['piece_amount'] ?? record['total_amount']);
+    final advanceAmount = safeToDouble(record['advance_amount'] ?? record['advance_deduction']);
+    final deductionAmount = safeToDouble(record['deduction_amount'] ?? 0);
+    final netAmount = safeToDouble(record['net_amount'] ?? pieceAmount - advanceAmount - deductionAmount);
     final status = record['status'] ?? 'pending';
+    final remark = record['remark'] ?? '';
 
     const statusLabels = {'pending': '待确认', 'confirmed': '已确认', 'paid': '已支付'};
     const statusColors = {'pending': AppTheme.warningColor, 'confirmed': AppTheme.primaryColor, 'paid': AppTheme.successColor};
@@ -350,7 +370,7 @@ class _SalaryPageState extends State<SalaryPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(period, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary)),
+              Expanded(child: Text(period, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppTheme.textPrimary))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
@@ -361,13 +381,21 @@ class _SalaryPageState extends State<SalaryPage>
           const SizedBox(height: 12),
           Row(
             children: [
-              _buildSettlementInfoItem(label: '总金额', value: '¥${totalAmount.toStringAsFixed(2)}'),
-              const SizedBox(width: 20),
-              _buildSettlementInfoItem(label: '扣减', value: '-¥${deduction.toStringAsFixed(2)}', valueColor: AppTheme.dangerColor),
-              const SizedBox(width: 20),
+              _buildSettlementInfoItem(label: '计件金额', value: '¥${pieceAmount.toStringAsFixed(2)}'),
+              const SizedBox(width: 16),
+              _buildSettlementInfoItem(label: '预支扣减', value: '-¥${advanceAmount.toStringAsFixed(2)}', valueColor: AppTheme.dangerColor),
+              if (deductionAmount > 0) ...[
+                const SizedBox(width: 16),
+                _buildSettlementInfoItem(label: '其他扣减', value: '-¥${deductionAmount.toStringAsFixed(2)}', valueColor: AppTheme.dangerColor),
+              ],
+              const SizedBox(width: 16),
               _buildSettlementInfoItem(label: '实发', value: '¥${netAmount.toStringAsFixed(2)}', valueColor: AppTheme.primaryColor),
             ],
           ),
+          if (remark.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('备注: $remark', style: const TextStyle(fontSize: 12, color: AppTheme.textHint)),
+          ],
         ],
       ),
     );
