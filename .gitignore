@@ -1,12 +1,28 @@
+# Flutter
 build/
 .dart_tool/
 .packages
 .flutter-plugins
 .flutter-plugins-dependencies
-*.iml
+**.iml
 .idea/
-local.properties
-.gradle/
+.pub-cache/
+
+# Android
+android/.gradle/
+android/local.properties
+android/build/
 *.apk
 *.aab
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Podfile.lock
+
+# Misc
+*.log
+*.tar.gz
 pubspec.lock
