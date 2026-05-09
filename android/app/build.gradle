@@ -50,7 +50,7 @@ android {
             force 'androidx.core:core-ktx:1.13.1'
             force 'androidx.browser:browser:1.8.0'
             force 'androidx.annotation:annotation:1.7.1'
-            force 'androidx.activity:activity:1.8.5'
+            force 'androidx.activity:activity:1.8.0'
             force 'androidx.fragment:fragment:1.6.2'
             force 'androidx.appcompat:appcompat:1.6.1'
             force 'androidx.lifecycle:lifecycle-runtime:2.7.0'
