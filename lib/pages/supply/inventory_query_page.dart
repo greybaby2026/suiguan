@@ -4,7 +4,6 @@ import '../../config/api_config.dart';
 import '../../services/api_service.dart';
 import '../../widgets/error_state_widget.dart';
 
-/// 库存查询页
 class InventoryQueryPage extends StatefulWidget {
   const InventoryQueryPage({super.key});
 
@@ -15,19 +14,16 @@ class InventoryQueryPage extends StatefulWidget {
 class _InventoryQueryPageState extends State<InventoryQueryPage> {
   final _searchController = TextEditingController();
   int? _selectedWarehouseId;
-  String _selectedMaterialType = 'all';
+  String _selectedItemType = 'all';
   bool _isLoading = false;
   dynamic _error;
   List<Map<String, dynamic>> _inventories = [];
   List<Map<String, dynamic>> _warehouses = [];
 
-  // 物料类型选项
-  static const List<Map<String, String>> _materialTypes = [
+  static const List<Map<String, String>> _itemTypes = [
     {'label': '全部', 'value': 'all'},
-    {'label': '原材料', 'value': 'raw_material'},
-    {'label': '半成品', 'value': 'semi_finished'},
-    {'label': '成品', 'value': 'finished_product'},
-    {'label': '辅料', 'value': 'auxiliary_material'},
+    {'label': '原材料', 'value': 'material'},
+    {'label': '成品', 'value': 'product'},
   ];
 
   @override
@@ -43,7 +39,6 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
     super.dispose();
   }
 
-  /// 加载仓库列表
   Future<void> _loadWarehouses() async {
     try {
       final result = await ApiService.instance.get(ApiConfig.warehouses);
@@ -57,13 +52,12 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
     }
   }
 
-  /// 加载库存数据
   Future<void> _loadInventories() async {
     setState(() => _isLoading = true);
     try {
       final params = <String, dynamic>{};
       if (_selectedWarehouseId != null) params['warehouse_id'] = _selectedWarehouseId;
-      if (_selectedMaterialType != 'all') params['material_type'] = _selectedMaterialType;
+      if (_selectedItemType != 'all') params['item_type'] = _selectedItemType;
       if (_searchController.text.trim().isNotEmpty) {
         params['keyword'] = _searchController.text.trim();
       }
@@ -93,7 +87,7 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
         children: [
           _buildSearchBar(),
           _buildWarehouseFilter(),
-          _buildMaterialTypeFilter(),
+          _buildItemTypeFilter(),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
@@ -118,7 +112,6 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
     );
   }
 
-  /// 搜索栏
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -140,7 +133,6 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
     );
   }
 
-  /// 仓库筛选
   Widget _buildWarehouseFilter() {
     return Container(
       height: 40,
@@ -174,20 +166,19 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
     );
   }
 
-  /// 物料类型筛选
-  Widget _buildMaterialTypeFilter() {
+  Widget _buildItemTypeFilter() {
     return Container(
       height: 40,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: _materialTypes.map((type) {
-          final isActive = _selectedMaterialType == type['value'];
+        children: _itemTypes.map((type) {
+          final isActive = _selectedItemType == type['value'];
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
               onTap: () {
-                setState(() => _selectedMaterialType = type['value']!);
+                setState(() => _selectedItemType = type['value']!);
                 _loadInventories();
               },
               child: Container(
@@ -212,7 +203,6 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
     );
   }
 
-  /// 空状态
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -225,10 +215,8 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
       ),
     );
   }
-
 }
 
-/// 筛选标签组件
 class _FilterChip extends StatelessWidget {
   final String label;
   final bool isSelected;
@@ -263,7 +251,6 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-/// 库存卡片
 class _InventoryCard extends StatelessWidget {
   final Map<String, dynamic> item;
 
@@ -278,14 +265,12 @@ class _InventoryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: AppTheme.cardDecoration.copyWith(
-        // 预警项加红色边框
         border: isWarning
             ? Border.all(color: AppTheme.dangerColor.withOpacity(0.3), width: 1)
             : null,
       ),
       child: Row(
         children: [
-          // 图标
           Container(
             width: 42,
             height: 42,
@@ -300,12 +285,10 @@ class _InventoryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // 物料信息
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 物料名 + 预警标识
                 Row(
                   children: [
                     Expanded(
@@ -337,7 +320,6 @@ class _InventoryCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                // 仓库
                 Row(
                   children: [
                     const Icon(Icons.warehouse_outlined, size: 14, color: AppTheme.textHint),
@@ -346,12 +328,20 @@ class _InventoryCard extends StatelessWidget {
                       item['warehouse_name'] ?? '',
                       style: const TextStyle(fontSize: 12, color: AppTheme.textHint),
                     ),
+                    const SizedBox(width: 12),
+                    if (item['item_spec'] != null) ...[
+                      const Icon(Icons.straighten, size: 14, color: AppTheme.textHint),
+                      const SizedBox(width: 4),
+                      Text(
+                        item['item_spec'],
+                        style: const TextStyle(fontSize: 12, color: AppTheme.textHint),
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
-          // 数量
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
