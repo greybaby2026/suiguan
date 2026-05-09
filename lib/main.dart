@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'config/app_theme.dart';
 import 'config/app_routes.dart';
@@ -11,15 +13,22 @@ import 'providers/notification_provider.dart';
 import 'providers/warehouse_provider.dart';
 import 'services/app_update_service.dart';
 
+Future<void> _writeCrashLog(String message) async {
+  try {
+    final dir = await getExternalStorageDirectory() ?? await getTemporaryDirectory();
+    final file = File('${dir.path}/crash_log.txt');
+    final timestamp = DateTime.now().toIso8601String();
+    await file.writeAsString('[$timestamp] $message\n', mode: FileMode.append);
+  } catch (_) {}
+}
+
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
 
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
-      debugPrint('=== FLUTTER ERROR ===');
-      debugPrint(details.exceptionAsString());
-      debugPrint(details.stack.toString());
+      _writeCrashLog('FLUTTER ERROR: ${details.exceptionAsString()}\n${details.stack}');
     };
 
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
@@ -32,13 +41,16 @@ void main() {
       DeviceOrientation.portraitDown,
     ]);
 
-    await AppUpdateService().init();
+    try {
+      await AppUpdateService().init();
+      _writeCrashLog('AppUpdateService init OK');
+    } catch (e, st) {
+      _writeCrashLog('AppUpdateService init FAILED: $e\n$st');
+    }
 
     runApp(const SuiguanApp());
   }, (error, stack) {
-    debugPrint('=== UNHANDLED ERROR ===');
-    debugPrint(error.toString());
-    debugPrint(stack.toString());
+    _writeCrashLog('UNHANDLED ERROR: $error\n$stack');
   });
 }
 
