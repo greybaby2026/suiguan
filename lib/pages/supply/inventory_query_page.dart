@@ -24,10 +24,10 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
   // 物料类型选项
   static const List<Map<String, String>> _materialTypes = [
     {'label': '全部', 'value': 'all'},
-    {'label': '原材料', 'value': 'raw'},
-    {'label': '半成品', 'value': 'semi'},
-    {'label': '成品', 'value': 'finished'},
-    {'label': '辅料', 'value': 'auxiliary'},
+    {'label': '原材料', 'value': 'raw_material'},
+    {'label': '半成品', 'value': 'semi_finished'},
+    {'label': '成品', 'value': 'finished_product'},
+    {'label': '辅料', 'value': 'auxiliary_material'},
   ];
 
   @override
@@ -105,7 +105,7 @@ class _InventoryQueryPageState extends State<InventoryQueryPage> {
                         onRefresh: _loadInventories,
                         color: AppTheme.primaryColor,
                         child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                           itemCount: _inventories.length,
                           itemBuilder: (context, index) {
                             return _InventoryCard(item: _inventories[index]);
