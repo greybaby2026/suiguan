@@ -290,65 +290,6 @@ class WorkerProfileContent extends StatefulWidget {
 }
 
 class _WorkerProfileContentState extends State<WorkerProfileContent> {
-  void _showChangePasswordDialog() {
-    final oldCtrl = TextEditingController();
-    final newCtrl = TextEditingController();
-    final confirmCtrl = TextEditingController();
-    bool isSubmitting = false;
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('修改密码'),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.85,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: oldCtrl, obscureText: true, decoration: const InputDecoration(labelText: '当前密码', prefixIcon: Icon(Icons.lock_outline))),
-              const SizedBox(height: 12),
-              TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: '新密码', prefixIcon: Icon(Icons.vpn_key_outlined))),
-              const SizedBox(height: 12),
-              TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: '确认新密码', prefixIcon: Icon(Icons.check_circle_outline))),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          ElevatedButton(
-            onPressed: isSubmitting ? null : () async {
-              if (newCtrl.text.trim().isEmpty || newCtrl.text != confirmCtrl.text) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('两次密码输入不一致'), backgroundColor: AppTheme.dangerColor, behavior: SnackBarBehavior.floating));
-                return;
-              }
-              if (newCtrl.text.trim().length < 6) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码至少6位'), backgroundColor: AppTheme.dangerColor, behavior: SnackBarBehavior.floating));
-                return;
-              }
-              setDialogState(() => isSubmitting = true);
-              try {
-                await ApiService.instance.put('${ApiConfig.me}/password', data: {
-                  'current_password': oldCtrl.text.trim(),
-                  'new_password': newCtrl.text.trim(),
-                  'new_password_confirmation': confirmCtrl.text.trim(),
-                });
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码修改成功'), backgroundColor: AppTheme.successColor, behavior: SnackBarBehavior.floating));
-                }
-              } catch (e) {
-                setDialogState(() => isSubmitting = false);
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('修改失败: $e'), backgroundColor: AppTheme.dangerColor, behavior: SnackBarBehavior.floating));
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-            child: isSubmitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('确认'),
-          ),
-        ],
-      )),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -363,7 +304,6 @@ class _WorkerProfileContentState extends State<WorkerProfileContent> {
         _ProfileMenuItem(icon: Icons.account_balance_wallet_outlined, title: '我的薪资', onTap: () => context.go('/salary')),
         _ProfileMenuItem(icon: Icons.notifications_outlined, title: '消息通知', onTap: () => context.push('/notifications')),
         _ProfileMenuItem(icon: Icons.system_update_outlined, title: '检查更新', onTap: () => AppUpdateService().showUpdateDialog(context)),
-        _ProfileMenuItem(icon: Icons.lock_outline, title: '修改密码', onTap: _showChangePasswordDialog),
         _ProfileMenuItem(icon: Icons.help_outline, title: '帮助与反馈', showDivider: false, onTap: () => context.push('/management/help-feedback')),
       ])),
       const SizedBox(height: 24),
