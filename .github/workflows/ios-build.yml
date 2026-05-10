@@ -22,23 +22,29 @@ jobs:
           cd ios
           pod install
 
-      - name: Build iOS Archive
+      - name: Disable Code Signing in Project
         run: |
-          xcodebuild archive \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            -allowProvisioningUpdates
+          /usr/libexec/PlistBuddy -c "Set :buildSettings:CODE_SIGNING_ALLOWED NO" ios/Runner.xcodeproj/project.pbxproj || true
+          /usr/libexec/PlistBuddy -c "Set :buildSettings:CODE_SIGNING_REQUIRED NO" ios/Runner.xcodeproj/project.pbxproj || true
+          /usr/libexec/PlistBuddy -c "Set :buildSettings:CODE_SIGN_IDENTITY ''" ios/Runner.xcodeproj/project.pbxproj || true
+          echo 'CODE_SIGNING_ALLOWED=NO' >> ios/Flutter/Release.xcconfig
+          echo 'CODE_SIGNING_REQUIRED=NO' >> ios/Flutter/Release.xcconfig
+          echo 'CODE_SIGN_IDENTITY=""' >> ios/Flutter/Release.xcconfig
+          echo 'DEVELOPMENT_TEAM=""' >> ios/Flutter/Release.xcconfig
+
+      - name: Build iOS
+        run: |
+          flutter build ios --release --no-codesign 2>&1 | tee build.log
+          if [ $? -ne 0 ]; then
+            echo "=== BUILD ERRORS ==="
+            grep -i "error:" build.log | tail -20
+            exit 1
+          fi
 
       - name: Create IPA
         run: |
           mkdir -p build/ios/ipa/Payload
-          cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app build/ios/ipa/Payload/
+          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
           cd build/ios/ipa
           zip -r Runner.ipa Payload/
 
