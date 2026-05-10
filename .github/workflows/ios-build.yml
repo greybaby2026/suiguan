@@ -24,11 +24,9 @@ jobs:
 
       - name: Disable Code Signing
         run: |
-          # Modify project.pbxproj to disable signing
           sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' ios/Runner.xcodeproj/project.pbxproj
           sed -i '' 's/"CODE_SIGN_IDENTITY$$sdk=iphoneos\*$$" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' ios/Runner.xcodeproj/project.pbxproj
           sed -i '' 's/CODE_SIGN_STYLE = Automatic/CODE_SIGN_STYLE = Manual/g' ios/Runner.xcodeproj/project.pbxproj
-          # Ensure xcconfig has signing disabled
           echo 'CODE_SIGNING_ALLOWED=NO' >> ios/Flutter/Release.xcconfig
           echo 'CODE_SIGNING_REQUIRED=NO' >> ios/Flutter/Release.xcconfig
 
@@ -40,10 +38,16 @@ jobs:
           find build/ios -name "Runner.app" -type d 2>/dev/null || echo "No Runner.app found"
 
       - name: Package IPA
-        if: success()
         run: |
           APP_DIR=$(find build/ios -name "Runner.app" -type d | head -1)
+          echo "Found: $APP_DIR"
           mkdir -p Payload
           cp -r "$APP_DIR" Payload/
           zip -r Runner.ipa Payload
           ls -lh Runner.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Runner.ipa
+          path: Runner.ipa
