@@ -126,32 +126,45 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            PROVISIONING_PROFILE=""
+            PROVISIONING_PROFILE="" \
+            2>&1 | tee ../build.log
+
+          EXIT_CODE=${PIPESTATUS[0]}
+          echo "xcodebuild 退出码: $EXIT_CODE"
+
+          echo ""
+          echo "========== 所有 error: 行 =========="
+          grep -E "^\s*(error:|Error:|❌|fatal|FAILED|BUILD FAILED|The following)" ../build.log || echo "(未找到 error 行)"
+
+          echo ""
+          echo "========== 日志最后 50 行 =========="
+          tail -50 ../build.log
+
+          exit $EXIT_CODE
 
       - name: 打包 IPA
+        if: success()
         run: |
-          echo "查找 .app ..."
-          find build/ios -name "*.app" -type d 2>/dev/null
-
           APP_PATH=$(find build/ios -path "*/Release-iphoneos/Runner.app" -type d | head -1)
 
           if [ -z "$APP_PATH" ]; then
             echo "错误：未找到 Runner.app"
-            echo "build/ios 目录内容:"
-            find build/ios -type d -maxdepth 4 2>/dev/null | head -50
             exit 1
           fi
 
           echo "找到 Runner.app: $APP_PATH"
-
           mkdir Payload
           cp -r "$APP_PATH" Payload/
           zip -r Runner.ipa Payload
-
-          echo "========== IPA 信息 =========="
           ls -lh Runner.ipa
-          echo "文件大小: $(stat -f%z Runner.ipa 2>/dev/null || stat -c%s Runner.ipa 2>/dev/null || echo 'unknown') bytes"
 
+      - name: 上传构建日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          
       - name: 验证 IPA（检查是不是空的）
         run: |
           SIZE=$(stat -f%z Runner.ipa 2>/dev/null || stat -c%s Runner.ipa 2>/dev/null)
