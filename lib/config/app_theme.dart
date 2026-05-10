@@ -36,7 +36,7 @@ class AppTheme {
           fontWeight: FontWeight.w600,
         ),
       ),
-      cardTheme: CardThemeData(
+      cardTheme: CardTheme(
         color: bgCard,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
