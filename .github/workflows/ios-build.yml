@@ -144,10 +144,12 @@ jobs:
       - name: 打包 IPA
         if: success()
         run: |
-          APP_PATH=$(find build/ios -path "*/Release-iphoneos/Runner.app" -type d | head -1)
+          APP_PATH="build/ios/Runner.xcarchive/Products/Applications/Runner.app"
 
-          if [ -z "$APP_PATH" ]; then
+          if [ ! -d "$APP_PATH" ]; then
             echo "错误：未找到 Runner.app"
+            echo "尝试查找..."
+            find build/ios -name "Runner.app" -type d 2>/dev/null
             exit 1
           fi
 
@@ -156,7 +158,6 @@ jobs:
           cp -r "$APP_PATH" Payload/
           zip -r Runner.ipa Payload
           ls -lh Runner.ipa
-
       - name: 上传构建日志
         if: always()
         uses: actions/upload-artifact@v4
