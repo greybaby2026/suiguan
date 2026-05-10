@@ -23,16 +23,17 @@ jobs:
           pod install
 
       - name: Build iOS
-        run: flutter build ios --release
+        run: |
+          flutter build ios --release --no-codesign 2>&1 | tee build.log
+          cat build.log | grep -i "error\|Error\|failed\|Failed" | tail -10 || true
 
       - name: Find and Create IPA
         run: |
-          # Find the .app directory
           APP_DIR=$(find build/ios -name "Runner.app" -type d 2>/dev/null | head -1)
           if [ -z "$APP_DIR" ]; then
-            echo "Runner.app not found. Listing build/ios contents:"
-            ls -la build/ios/ 2>/dev/null || echo "build/ios does not exist"
-            find build/ios -type f -name "*.app" 2>/dev/null || echo "No .app found"
+            echo "Runner.app not found. Checking build/ios:"
+            ls -la build/ios/ 2>/dev/null || echo "build/ios missing"
+            find build/ios -name "*.app" 2>/dev/null || echo "No .app"
             exit 1
           fi
           echo "Found: $APP_DIR"
