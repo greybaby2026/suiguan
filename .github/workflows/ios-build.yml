@@ -28,12 +28,11 @@ jobs:
             -scheme Runner \
             -configuration Release \
             -destination 'generic/platform=iOS' \
-            -archivePath build/ios/Runner.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            archive
+            IPHONEOS_DEPLOYMENT_TARGET=13.0
 
       - name: Create IPA
         run: |
