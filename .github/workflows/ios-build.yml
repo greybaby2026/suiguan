@@ -119,7 +119,6 @@ jobs:
             -sdk iphoneos \
             -derivedDataPath ../build/ios \
             -archivePath ../build/ios/Runner.xcarchive \
-            -quiet \
             archive \
             ONLY_ACTIVE_ARCH=NO \
             DEVELOPMENT_TEAM=0000000000 \
@@ -128,8 +127,6 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             PROVISIONING_PROFILE_SPECIFIER="" \
             PROVISIONING_PROFILE=""
-
-          echo "xcodebuild archive 完成"
 
       - name: 打包 IPA
         run: |
