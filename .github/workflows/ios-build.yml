@@ -1,56 +1,174 @@
-name: iOS Build
+name: iOS 无签名构建
 
 on:
   workflow_dispatch:
 
+env:
+  FLUTTER_VERSION: '3.24.0'
+  DUMMY_TEAM: '0000000000'
+
 jobs:
   build:
+    name: Build Unsigned IPA
     runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v5
 
-      - name: Setup Flutter
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
 
-      - name: Get dependencies
+      - name: 安装 Dart 依赖
         run: flutter pub get
 
-      - name: Install CocoaPods
+      - name: 安装 CocoaPods 依赖
+        run: cd ios && pod install
+
+      - name: 修补项目（设假团队 + 禁止签名）
+        run: |
+          python3 << 'PYEOF'
+          import re
+
+          pbxpath = 'ios/Runner.xcodeproj/project.pbxproj'
+          with open(pbxpath, 'r') as f:
+              content = f.read()
+
+          before = content
+
+          # ============ 核心：塞一个假的 DEVELOPMENT_TEAM ============
+          # Flutter 的 xcode_backend.sh 里会检查 -z "${DEVELOPMENT_TEAM}"
+          # 空值直接报错，所以必须给一个非空值骗过去
+          content = re.sub(
+              r'DEVELOPMENT_TEAM = "";',
+              'DEVELOPMENT_TEAM = "0000000000";',
+              content
+          )
+          content = re.sub(
+              r'DEVELOPMENT_TEAM = [A-Za-z0-9]+;',
+              'DEVELOPMENT_TEAM = 0000000000;',
+              content
+          )
+
+          # ============ 改为手动签名模式 ============
+          content = content.replace(
+              'CODE_SIGN_STYLE = Automatic;',
+              'CODE_SIGN_STYLE = Manual;'
+          )
+
+          # ============ 禁止 code signing ============
+          content = content.replace(
+              'CODE_SIGNING_ALLOWED = YES',
+              'CODE_SIGNING_ALLOWED = NO'
+          )
+
+          # ============ 清空签名身份 ============
+          content = re.sub(
+              r'"CODE_SIGN_IDENTITY$$sdk=iphoneos\*$$" = "[^"]*"',
+              '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""',
+              content
+          )
+          content = re.sub(
+              r'"CODE_SIGN_IDENTITY" = "[^"]*"',
+              '"CODE_SIGN_IDENTITY" = ""',
+              content
+          )
+
+          # ============ 清空 Provisioning Profile ============
+          content = re.sub(
+              r'PROVISIONING_PROFILE_SPECIFIER = "[^"]*"',
+              'PROVISIONING_PROFILE_SPECIFIER = ""',
+              content
+          )
+          content = re.sub(
+              r'PROVISIONING_PROFILE = "[^"]*"',
+              'PROVISIONING_PROFILE = ""',
+              content
+          )
+
+          if content != before:
+              print('已修补 project.pbxproj（设假团队 + 禁止签名）')
+          else:
+              print('project.pbxproj 无需修补（可能已是修补后状态）')
+
+          with open(pbxpath, 'w') as f:
+              f.write(content)
+          PYEOF
+
+      - name: 修补 xcconfig（删除可能冲突的 DEVELOPMENT_TEAM）
+        run: |
+          for f in ios/Flutter/*.xcconfig; do
+            if [ -f "$f" ] && grep -q DEVELOPMENT_TEAM "$f" 2>/dev/null; then
+              sed -i '' '/DEVELOPMENT_TEAM/d' "$f"
+              echo "已修补: $f"
+            fi
+          done
+          echo "xcconfig 修补完成"
+
+      - name: 直接使用 xcodebuild 构建（绕过 Flutter 工具链）
         run: |
           cd ios
-          pod install
 
-      - name: Disable code signing in project
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ../build/ios \
+            -archivePath ../build/ios/Runner.xcarchive \
+            -quiet \
+            archive \
+            ONLY_ACTIVE_ARCH=NO \
+            DEVELOPMENT_TEAM=0000000000 \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            PROVISIONING_PROFILE=""
+
+          echo "xcodebuild archive 完成"
+
+      - name: 打包 IPA
         run: |
-          python3 << 'EOF'
-          path = 'ios/Runner.xcodeproj/project.pbxproj'
-          with open(path, 'r') as f:
-              content = f.read()
-          content = content.replace('CODE_SIGNING_ALLOWED = YES', 'CODE_SIGNING_ALLOWED = NO')
-          content = content.replace('CODE_SIGN_STYLE = Automatic', 'CODE_SIGN_STYLE = Manual')
-          # Remove development team and signing identity
-          import re
-          content = re.sub(r'"CODE_SIGN_IDENTITY$$sdk=iphoneos\*$$" = "[^"]*"', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""', content)
-          content = content.replace('"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer"', '"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""')
-          with open(path, 'w') as f:
-              f.write(content)
-          print('Project signing disabled')
-          EOF
+          echo "查找 .app ..."
+          find build/ios -name "*.app" -type d 2>/dev/null
 
-      - name: Build iOS
-        run: flutter build ios --release --no-codesign
+          APP_PATH=$(find build/ios -path "*/Release-iphoneos/Runner.app" -type d | head -1)
 
-      - name: Package IPA
-        run: |
-          mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
+          if [ -z "$APP_PATH" ]; then
+            echo "错误：未找到 Runner.app"
+            echo "build/ios 目录内容:"
+            find build/ios -type d -maxdepth 4 2>/dev/null | head -50
+            exit 1
+          fi
+
+          echo "找到 Runner.app: $APP_PATH"
+
+          mkdir Payload
+          cp -r "$APP_PATH" Payload/
           zip -r Runner.ipa Payload
-          ls -lh Runner.ipa
 
-      - name: Upload IPA
+          echo "========== IPA 信息 =========="
+          ls -lh Runner.ipa
+          echo "文件大小: $(stat -f%z Runner.ipa 2>/dev/null || stat -c%s Runner.ipa 2>/dev/null || echo 'unknown') bytes"
+
+      - name: 验证 IPA（检查是不是空的）
+        run: |
+          SIZE=$(stat -f%z Runner.ipa 2>/dev/null || stat -c%s Runner.ipa 2>/dev/null)
+          if [ "$SIZE" -lt 10000 ]; then
+            echo "错误：IPA 文件太小 (${SIZE} bytes)，构建可能失败了"
+            echo "检查构建日志..."
+            find build/ios -type f -name "*.log" -exec echo "=== {} ===" \; -exec tail -30 {} \; 2>/dev/null
+            exit 1
+          fi
+          echo "IPA 大小正常: ${SIZE} bytes ($(echo "scale=1; $SIZE/1048576" | bc)MB)"
+
+      - name: 上传 IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Runner.ipa
+          name: suiguan-app-unsigned
           path: Runner.ipa
+          compression-level: 0
