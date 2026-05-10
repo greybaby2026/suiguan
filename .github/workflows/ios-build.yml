@@ -24,27 +24,18 @@ jobs:
 
       - name: Build iOS
         run: |
-          flutter build ios --release --no-codesign 2>&1 | tee build.log
-          cat build.log | grep -i "error\|Error\|failed\|Failed" | tail -10 || true
+          flutter build ios --release --no-codesign
+          ls -la build/ios/iphoneos/
 
-      - name: Find and Create IPA
+      - name: Package IPA
         run: |
-          APP_DIR=$(find build/ios -name "Runner.app" -type d 2>/dev/null | head -1)
-          if [ -z "$APP_DIR" ]; then
-            echo "Runner.app not found. Checking build/ios:"
-            ls -la build/ios/ 2>/dev/null || echo "build/ios missing"
-            find build/ios -name "*.app" 2>/dev/null || echo "No .app"
-            exit 1
-          fi
-          echo "Found: $APP_DIR"
-          mkdir -p build/ios/ipa/Payload
-          cp -r "$APP_DIR" build/ios/ipa/Payload/
-          cd build/ios/ipa
-          zip -r Runner.ipa Payload/
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r Runner.ipa Payload
           ls -lh Runner.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Runner.ipa
-          path: build/ios/ipa/Runner.ipa
+          path: Runner.ipa
