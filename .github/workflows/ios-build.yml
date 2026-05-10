@@ -22,28 +22,28 @@ jobs:
           cd ios
           pod install
 
-      - name: Build iOS
+      - name: Build iOS Archive
         run: |
-          xcodebuild -workspace ios/Runner.xcworkspace \
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
-            -destination 'generic/platform=iOS' \
+            -archivePath build/ios/archive/Runner.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            IPHONEOS_DEPLOYMENT_TARGET=13.0
+            -allowProvisioningUpdates
 
       - name: Create IPA
         run: |
-          mkdir -p /tmp/ipa/Payload
-          cp -r build/ios/iphoneos/Runner.app /tmp/ipa/Payload/
-          cd /tmp/ipa
+          mkdir -p build/ios/ipa/Payload
+          cp -r build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app build/ios/ipa/Payload/
+          cd build/ios/ipa
           zip -r Runner.ipa Payload/
-          cp Runner.ipa $GITHUB_WORKSPACE/Runner.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Runner.ipa
-          path: Runner.ipa
+          path: build/ios/ipa/Runner.ipa
