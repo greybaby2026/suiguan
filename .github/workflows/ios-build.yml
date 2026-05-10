@@ -22,31 +22,25 @@ jobs:
           cd ios
           pod install
 
-      - name: Disable Code Signing in Project
-        run: |
-          /usr/libexec/PlistBuddy -c "Set :buildSettings:CODE_SIGNING_ALLOWED NO" ios/Runner.xcodeproj/project.pbxproj || true
-          /usr/libexec/PlistBuddy -c "Set :buildSettings:CODE_SIGNING_REQUIRED NO" ios/Runner.xcodeproj/project.pbxproj || true
-          /usr/libexec/PlistBuddy -c "Set :buildSettings:CODE_SIGN_IDENTITY ''" ios/Runner.xcodeproj/project.pbxproj || true
-          echo 'CODE_SIGNING_ALLOWED=NO' >> ios/Flutter/Release.xcconfig
-          echo 'CODE_SIGNING_REQUIRED=NO' >> ios/Flutter/Release.xcconfig
-          echo 'CODE_SIGN_IDENTITY=""' >> ios/Flutter/Release.xcconfig
-          echo 'DEVELOPMENT_TEAM=""' >> ios/Flutter/Release.xcconfig
-
       - name: Build iOS
+        run: flutter build ios --release
+
+      - name: Find and Create IPA
         run: |
-          flutter build ios --release --no-codesign 2>&1 | tee build.log
-          if [ $? -ne 0 ]; then
-            echo "=== BUILD ERRORS ==="
-            grep -i "error:" build.log | tail -20
+          # Find the .app directory
+          APP_DIR=$(find build/ios -name "Runner.app" -type d 2>/dev/null | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "Runner.app not found. Listing build/ios contents:"
+            ls -la build/ios/ 2>/dev/null || echo "build/ios does not exist"
+            find build/ios -type f -name "*.app" 2>/dev/null || echo "No .app found"
             exit 1
           fi
-
-      - name: Create IPA
-        run: |
+          echo "Found: $APP_DIR"
           mkdir -p build/ios/ipa/Payload
-          cp -r build/ios/iphoneos/Runner.app build/ios/ipa/Payload/
+          cp -r "$APP_DIR" build/ios/ipa/Payload/
           cd build/ios/ipa
           zip -r Runner.ipa Payload/
+          ls -lh Runner.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
