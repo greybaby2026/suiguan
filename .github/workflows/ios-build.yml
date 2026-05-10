@@ -32,17 +32,14 @@ jobs:
 
       - name: Build iOS
         run: |
-          flutter build ios --release --no-codesign 2>&1 | tee build.log
-          echo "=== Checking build output ==="
-          ls -la build/ios/iphoneos/ 2>/dev/null || echo "iphoneos dir missing"
-          find build/ios -name "Runner.app" -type d 2>/dev/null || echo "No Runner.app found"
+          flutter build ios --release --no-codesign
+          echo "=== OUTPUT ==="
+          ls -la build/ios/iphoneos/
 
       - name: Package IPA
         run: |
-          APP_DIR=$(find build/ios -name "Runner.app" -type d | head -1)
-          echo "Found: $APP_DIR"
           mkdir -p Payload
-          cp -r "$APP_DIR" Payload/
+          cp -r build/ios/iphoneos/Runner.app Payload/
           zip -r Runner.ipa Payload
           ls -lh Runner.ipa
 
