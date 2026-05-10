@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
 
 env:
-  FLUTTER_VERSION: '3.24.0'
   DUMMY_TEAM: '0000000000'
 
 jobs:
@@ -19,7 +18,7 @@ jobs:
       - name: 配置 Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: '3.41.9'
           cache: true
 
       - name: 安装 Dart 依赖
